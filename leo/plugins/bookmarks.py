@@ -477,6 +477,20 @@ def cmd_use_other_outline(event):
     if splitter:
         splitter.add_adjacent(bmd.w, 'bodyFrame', 'above')
 
+#@+node:tbrown.20171016143819.1: ** bookmarks-load/save
+@g.command('bookmarks-save-ids')
+def bookmarks_save_ids(event):
+    """Have current bookmarks save the gnxs of the nodes they currently
+    point to, prior to those nodes being re-arranged.
+    """
+    c = event.get('c')
+    c._bookmarks.save_ids()
+@g.command('bookmarks-load-from-ids')
+def bookmarks_load_from_gnx(event):
+    """Have current bookmarks update their UNLs after nodes being re-arranged.
+    """
+    c = event.get('c')
+    c._bookmarks.load_from_ids()
 #@+node:ekr.20140917180536.17896: ** class FlowLayout
 class FlowLayout(QtWidgets.QLayout):
     """
@@ -1132,6 +1146,43 @@ class BookMarkDisplay(object):
         c.selectPosition(p)
         c.bringToFront()
 
+    #@+node:tbrown.20171016144330.1: *3* save_ids
+    def save_ids(self):
+        """save_ids - note gnx of current bookmark targets
+        """
+        p = self.v.context.vnode2position(self.v)
+        if not p:
+            return
+        for nd in p.unique_vnodes_iter():
+            if hasattr(nd, '_tmp_bm_gnx'):
+                del nd._tmp_bm_gnx
+            if nd.b and nd.b[0] == '#':
+                url = nd.b.split('\n', 1)[0][1:]
+            else:
+                continue  # don't mess with non local file bms
+            if url:
+                url = url.split('-->')
+                ok, depth, other_p = g.recursiveUNLFind(url, self.c)
+                if other_p:
+                    nd._tmp_bm_gnx = other_p.v
+
+    #@+node:tbrown.20171016150849.1: *3* load_from_ids
+    def load_from_ids(self):
+        """load_from_ids - update bookmarks from gnxs
+        """
+        p = self.v.context.vnode2position(self.v)
+        if not p:
+            return
+        for nd in p.unique_vnodes_iter():
+            if not hasattr(nd, '_tmp_bm_gnx'):
+                continue
+            gnx = nd._tmp_bm_gnx
+            del nd._tmp_bm_gnx
+            new_p = gnx.context.vnode2position(gnx)
+            if new_p:
+                nd.b = new_p.get_UNL(with_file=False)
+            else:
+                g.es(nd.h + ' not found')
     #@-others
 
 #@+node:tbrown.20110712121053.19746: ** class BookMarkDisplayProvider
